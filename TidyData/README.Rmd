@@ -1,0 +1,172 @@
+---
+title: "README"
+author: "Imad-Alh"
+date: "2024-09-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Getting and Cleaning Data project
+This project is based on the Human Activity Recognition Using Smartphones dataset,of an ititial project by:
+Jorge L. Reyes-Ortiz, Davide Anguita, Alessandro Ghio, Luca Oneto.
+
+### Dataset Information
+
+Jorge L. Reyes-Ortiz, Davide Anguita, Alessandro Ghio, Luca Oneto
+
+Smartlab - Non Linear Complex Systems Laboratory
+
+DITEN - Università degli Studi di Genova.
+
+Genoa, Italy.
+
+Email: activityrecognition@smartlab.ws
+
+Website: www.smartlab.ws
+
+## Objective
+
+The objective of this project is to:
+
+1- Merge the training and test sets into a single dataset.
+
+2- Extract measurements on the mean and standard deviation for each observation.
+
+3- Assign descriptive activity names to label the activities.
+
+4- Label the dataset with appropriately descriptive variable names.
+
+5- Create a tidy dataset with the average of each variable for each activity and each subject.
+
+## Code Explanation
+
+### 1. Reading and Merging the Data
+
+The script begins by reading in the features and activity labels from the provided files. It then reads the training and test datasets (X_train, Y_train, X_test, Y_test) along with the corresponding subject IDs for both datasets. The training and test datasets are merged into one complete dataset using rbind().
+
+```{r}
+features <- read.table('UCI_HAR_Dataset\\features.txt')
+
+X_train <- read.table('UCI_HAR_Dataset\\train\\X_train.txt')
+
+colnames(X_train) <- features[,2]
+
+Y_train <- read.table('UCI_HAR_Dataset\\train\\Y_train.txt')
+colnames(Y_train) <- 'Labels' # setting the correct column name
+
+X_train <- cbind(Y_train, X_train)
+
+subjects_train <- read.table('UCI_HAR_Dataset\\train\\subject_train.txt')
+colnames(subjects_train) <- 'Subject_ID'
+X_train <- cbind(subjects_train, X_train)
+
+X_test <- read.table('UCI_HAR_Dataset\\test\\X_test.txt')
+
+colnames(X_test) <- features[,2]
+
+Y_test <- read.table('UCI_HAR_Dataset\\test\\Y_test.txt')
+colnames(Y_test) <- 'Labels' # setting the correct column name
+
+X_test <- cbind(Y_test, X_test)
+
+subjects_test <- read.table('UCI_HAR_Dataset\\test\\subject_test.txt')
+colnames(subjects_test) <- 'Subject_ID'
+X_test <- cbind(subjects_test, X_test)
+
+complet_DF <- rbind.data.frame(X_train, X_test)
+```
+
+### 2. Extracting Mean and Standard Deviation Measurements
+
+After merging the datasets, the script selects only those columns that represent mean and standard deviation measurements using the grep() function, which matches patterns in column names.
+
+```{r}
+mean_std_indices <- grep("mean\\(\\)|std\\(\\)", colnames(complet_DF))
+
+complet_DF <- complet_DF[, c(1, 2, mean_std_indices)]
+```
+
+### 3. Labeling the Activities
+
+Activity labels, which are provided as numeric codes, are replaced with descriptive activity names (WALKING, SITTING, etc.) using a mapping vector.
+
+```{r}
+activity_labels <- read.table('UCI_HAR_Dataset\\activity_labels.txt')
+label_maping <- (activity_labels[,2])
+names(label_maping) <- activity_labels[,1]
+
+complet_DF$Labels <- label_maping[complet_DF$Labels]
+```
+
+### 4. Renaming Variables with Descriptive Names
+
+The script renames the dataset columns with more descriptive and human-readable names. For example:
+
+tBodyAcc-mean()-X becomes TimeBodyAccelerometerMean-X
+
+fBodyGyro-std()-Z becomes FrequencyBodyGyroscopeStd-Z
+
+```{r}
+new_names <- c(
+  "Subject_ID", "Activity_Label", 
+  "TimeBodyAccelerometerMean-X", "TimeBodyAccelerometerMean-Y", "TimeBodyAccelerometerMean-Z", 
+  "TimeBodyAccelerometerStd-X", "TimeBodyAccelerometerStd-Y", "TimeBodyAccelerometerStd-Z", 
+  "TimeGravityAccelerometerMean-X", "TimeGravityAccelerometerMean-Y", "TimeGravityAccelerometerMean-Z", 
+  "TimeGravityAccelerometerStd-X", "TimeGravityAccelerometerStd-Y", "TimeGravityAccelerometerStd-Z", 
+  "TimeBodyAccelerometerJerkMean-X", "TimeBodyAccelerometerJerkMean-Y", "TimeBodyAccelerometerJerkMean-Z", 
+  "TimeBodyAccelerometerJerkStd-X", "TimeBodyAccelerometerJerkStd-Y", "TimeBodyAccelerometerJerkStd-Z", 
+  "TimeBodyGyroscopeMean-X", "TimeBodyGyroscopeMean-Y", "TimeBodyGyroscopeMean-Z", 
+  "TimeBodyGyroscopeStd-X", "TimeBodyGyroscopeStd-Y", "TimeBodyGyroscopeStd-Z", 
+  "TimeBodyGyroscopeJerkMean-X", "TimeBodyGyroscopeJerkMean-Y", "TimeBodyGyroscopeJerkMean-Z", 
+  "TimeBodyGyroscopeJerkStd-X", "TimeBodyGyroscopeJerkStd-Y", "TimeBodyGyroscopeJerkStd-Z", 
+  "TimeBodyAccelerometerMagnitudeMean", "TimeBodyAccelerometerMagnitudeStd", 
+  "TimeGravityAccelerometerMagnitudeMean", "TimeGravityAccelerometerMagnitudeStd", 
+  "TimeBodyAccelerometerJerkMagnitudeMean", "TimeBodyAccelerometerJerkMagnitudeStd", 
+  "TimeBodyGyroscopeMagnitudeMean", "TimeBodyGyroscopeMagnitudeStd", 
+  "TimeBodyGyroscopeJerkMagnitudeMean", "TimeBodyGyroscopeJerkMagnitudeStd", 
+  "FrequencyBodyAccelerometerMean-X", "FrequencyBodyAccelerometerMean-Y", "FrequencyBodyAccelerometerMean-Z", 
+  "FrequencyBodyAccelerometerStd-X", "FrequencyBodyAccelerometerStd-Y", "FrequencyBodyAccelerometerStd-Z", 
+  "FrequencyBodyAccelerometerJerkMean-X", "FrequencyBodyAccelerometerJerkMean-Y", "FrequencyBodyAccelerometerJerkMean-Z", 
+  "FrequencyBodyAccelerometerJerkStd-X", "FrequencyBodyAccelerometerJerkStd-Y", "FrequencyBodyAccelerometerJerkStd-Z", 
+  "FrequencyBodyGyroscopeMean-X", "FrequencyBodyGyroscopeMean-Y", "FrequencyBodyGyroscopeMean-Z", 
+  "FrequencyBodyGyroscopeStd-X", "FrequencyBodyGyroscopeStd-Y", "FrequencyBodyGyroscopeStd-Z", 
+  "FrequencyBodyAccelerometerMagnitudeMean", "FrequencyBodyAccelerometerMagnitudeStd", 
+  "FrequencyBodyBodyAccelerometerJerkMagnitudeMean", "FrequencyBodyBodyAccelerometerJerkMagnitudeStd", 
+  "FrequencyBodyBodyGyroscopeMagnitudeMean", "FrequencyBodyBodyGyroscopeMagnitudeStd", 
+  "FrequencyBodyBodyGyroscopeJerkMagnitudeMean", "FrequencyBodyBodyGyroscopeJerkMagnitudeStd"
+)
+
+colnames(complet_DF) <- new_names
+```
+
+### 5. Creating a Tidy Dataset
+
+The final step is to group the data by Activity_Label and Subject_ID and calculate the average of each variable for each activity and each subject. This is done using the dplyr package's group_by() and summarise(across()) functions. The result is a tidy dataset that meets the project requirements.
+
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+summary_df <- complet_DF %>%
+  group_by(Activity_Label, Subject_ID) %>%
+  summarise(across(everything(), \(x) mean(x, na.rm = TRUE)), .groups = "drop")
+```
+
+### 6. Saving the Output
+
+The tidy dataset is saved as tidy_dataset.txt for further use.
+
+```{r}
+write.table(summary_df, file = "tidy_dataset.txt", row.names = FALSE)
+```
+
+## License:
+
+Use of this dataset in publications must be acknowledged by referencing the following publication 
+
+Davide Anguita, Alessandro Ghio, Luca Oneto, Xavier Parra and Jorge L. Reyes-Ortiz. Human Activity Recognition on Smartphones using a Multiclass Hardware-Friendly Support Vector Machine. International Workshop of Ambient Assisted Living (IWAAL 2012). Vitoria-Gasteiz, Spain. Dec 2012
+
+This dataset is distributed AS-IS and no responsibility implied or explicit can be addressed to the authors or their institutions for its use or misuse. Any commercial use is prohibited.
+
+Jorge L. Reyes-Ortiz, Alessandro Ghio, Luca Oneto, Davide Anguita. November 2012.

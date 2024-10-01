@@ -1,0 +1,192 @@
+---
+title: "Practical Machine Learning
+        Human Activity Recognition"
+author: "Imad-Alhiane"
+date: "2024-09-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Executif Summary
+
+This report outlines the steps taken to preprocess the data, train a Random Forest model using cross-validation, and make predictions on a test dataset. The dataset contains measurements of human body movements, and the goal is to predict the variable classe.
+
+## Background
+
+This report is part of the Johns Hopkins Practical Machine Learning course offered on Coursera. The assignment project involves developing a classifier to assess the quality of sports exercises using data collected from various tracking devices. Specifically, the dataset includes measurements from accelerometers located on the belt, forearm, arm, and dumbbell of six participants. These individuals were instructed to perform barbell lifts both correctly and incorrectly in five different ways.
+
+For further details about the study, you can visit [this link](http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har).
+
+The data utilized in this project can be accessed through the following links:
+
+The training data is available at: [pml-training.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv)
+
+The test data can be found at: [pml-testing.csv](https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv)
+
+# Data Preprocessing
+
+## Loading the necessary packages
+
+```{r, message = FALSE}
+library(dplyr)
+library(caret)
+library(randomForest)
+library(knitr)
+```
+
+## Dowloading the Data
+
+```{r, message = FALSE}
+# Define the URLs for the datasets
+training_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testing_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+# Define the filenames for the datasets
+training_file <- "pml-training.csv"
+testing_file <- "pml-testing.csv"
+
+# Function to download data if it does not exist
+download_data_if_needed <- function(url, filename) {
+  if (!file.exists(filename)) {
+    download.file(url, destfile = filename, method = "curl")
+    cat(paste("Downloaded:", filename, "\n"))
+  } else {
+    cat(paste("File already exists:", filename, "\n"))
+  }
+}
+
+# Check and download the training and testing datasets
+download_data_if_needed(training_url, training_file)
+download_data_if_needed(testing_url, testing_file)
+```
+
+## Loading the Data
+
+```{r}
+# Load the data
+training_set <- read.csv("pml-training.csv")
+final_test <- read.csv("pml-testing.csv")
+```
+
+## Cleaning process
+
+The data contains several columns with missing values and irrelevant information (such as timestamps and usernames). We perform the following preprocessing steps:
+
+  1- Remove columns with more than 97% missing values.
+
+  2- Remove columns that contain empty cells.
+
+  3- Remove unnecessary columns like timestamps and user names.
+
+  4- Remove rows with any missing values (NA).
+
+```{r}
+# Remove columns with more than 90% missing values
+NAs_col <- as.data.frame(colSums(is.na(training_set)) / nrow(training_set))
+colnames(NAs_col) <- "Proportion_NA"
+kept_cols <- rownames(subset(NAs_col, Proportion_NA > 0.9))
+training_set <- training_set %>%
+  select(-one_of(kept_cols))
+final_test <- final_test %>%
+  select(-one_of(kept_cols))
+
+# Remove columns with empty cells
+empty_cells_df <- data.frame(
+  "Column Name" = names(training_set),
+  "Empty Cell Count" = sapply(training_set, function(x) sum(x == "")),
+  stringsAsFactors = FALSE
+)
+kept_cols <- rownames(subset(empty_cells_df, `Empty.Cell.Count` > 0))
+training_set <- training_set %>%
+  select(-one_of(kept_cols))
+final_test <- final_test %>%
+  select(-one_of(kept_cols))
+
+# Remove unnecessary columns
+training_set <- training_set %>%
+  select(-matches("^X|timestamp|user_name"))
+final_test <- final_test %>%
+  select(-matches("^X|timestamp|user_name"))
+
+# Remove rows with any NA values
+training_set <- na.omit(training_set)
+```
+
+## Data Splitting
+
+We split the training data into two sets: 70% for training and 30% for testing.
+
+```{r}
+# Split the data into training and test sets (70% train, 30% test)
+set.seed(345)
+inTrain <- createDataPartition(training_set$classe, p = 0.70, list = FALSE)
+train <- training_set[inTrain, ]
+test <- training_set[-inTrain, ]
+
+# Transforming the target variable as a factor
+train$classe <- as.factor(train$classe)
+test$classe <- as.factor(test$classe)
+```
+
+## Model Training with Cross-Validation
+
+We implement cross-validation to avoid overfitting. Specifically, we use 5-fold cross-validation to train the Random Forest model.
+
+```{r}
+# Implement cross-validation with trainControl
+ctrl <- trainControl(method = "cv", number = 5)  # 5-fold cross-validation
+
+# Fit a Random Forest model with cross-validation
+rf_model_cv <- train(classe ~ ., data = train, method = "rf", trControl = ctrl)
+```
+
+## Model Testing and Accuracy
+
+We now use the trained model to make predictions on the test set and calculate the model's accuracy.
+
+```{r}
+# Predict on the test set
+predictions <- predict(rf_model_cv, newdata = test)
+
+# Calculate accuracy and display the confusion matrix
+conf_matrix <- confusionMatrix(predictions, test$classe)
+accuracy <- conf_matrix$overall['Accuracy']
+
+# Display the confusion matrix and accuracy
+kable(as.data.frame(conf_matrix$table), caption = "Confusion Matrix", format = "markdown")
+kable(as.data.frame(accuracy), caption = "Model Accuracy", format = "markdown")
+```
+
+## Expected out-of-sample error
+
+The expected out-of-sample error is estimated at `r 1 - accuracy`, which is derived from the predictions made against the cross-validation set. Given that our model achieves an accuracy exceeding 99% on the cross-validation data, we can anticipate that very few, if any, test samples will be misclassified.
+
+
+## Predictions on the Final Test Set
+
+Finally, we use the model to make predictions on the final_test dataset. Note that we exclude the problem_id column from the features during prediction but include it in the final output.
+
+```{r}
+# Ensure the problem_id column is kept for reference
+final_test_ids <- final_test$problem_id
+
+# Remove the problem_id column for prediction
+final_test_no_id <- final_test %>%
+  select(-problem_id)
+
+# Make predictions using the trained model (rf_model_cv)
+final_predictions <- predict(rf_model_cv, newdata = final_test_no_id)
+
+# Combine predictions with the problem_id
+submission <- data.frame(problem_id = final_test_ids, predicted_class = final_predictions)
+
+# Display the submission data
+kable(submission, caption = "Final Test Set Predictions", format = "markdown")
+```
+
+# Conclusion
+
+In this analysis, we cleaned the data, trained a Random Forest model with cross-validation, evaluated its performance, and predicted the classe variable for the test dataset. The model achieved high accuracy and provided reasonable predictions for the test case.
